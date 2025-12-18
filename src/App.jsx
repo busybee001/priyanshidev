@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { data } from "./data";
 
 function Pill({ children }) {
@@ -34,13 +35,57 @@ function LinkA({ href, children }) {
   );
 }
 
-function Cta({ href, label, sub, icon }) {
+function IconBtn({ href, title, children, onClick }) {
+  const common =
+    "grid h-10 w-10 place-items-center rounded-xl border border-zinc-800 bg-zinc-950/60 transition hover:-translate-y-0.5 hover:border-amber-400/50 hover:shadow-[0_0_24px_rgba(245,158,11,0.16)]";
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} title={title} className={common}>
+        {children}
+      </button>
+    );
+  }
   return (
     <a
       href={href}
-      target={href.startsWith("http") ? "_blank" : undefined}
-      rel={href.startsWith("http") ? "noreferrer" : undefined}
-      className="cta-btn group inline-flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/60 px-4 py-3"
+      title={title}
+      target={href?.startsWith("http") ? "_blank" : undefined}
+      rel={href?.startsWith("http") ? "noreferrer" : undefined}
+      className={common}
+    >
+      {children}
+    </a>
+  );
+}
+
+function Cta({ href, label, sub, icon, onClick }) {
+  const cls =
+    "cta-btn group inline-flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-left";
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cls}>
+        <span className="cta-ic grid h-10 w-10 place-items-center rounded-xl border border-zinc-800 bg-zinc-900/40">
+          {icon}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold tracking-tight text-zinc-100">
+            {label}
+          </span>
+          <span className="block truncate text-xs text-zinc-400">{sub}</span>
+        </span>
+        <span className="ml-auto text-zinc-600 transition group-hover:text-zinc-300">
+          →
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      target={href?.startsWith("http") ? "_blank" : undefined}
+      rel={href?.startsWith("http") ? "noreferrer" : undefined}
+      className={cls}
     >
       <span className="cta-ic grid h-10 w-10 place-items-center rounded-xl border border-zinc-800 bg-zinc-900/40">
         {icon}
@@ -58,21 +103,13 @@ function Cta({ href, label, sub, icon }) {
   );
 }
 
-function IconBtn({ href, title, children }) {
-  return (
-    <a
-      href={href}
-      title={title}
-      target={href?.startsWith("http") ? "_blank" : undefined}
-      rel={href?.startsWith("http") ? "noreferrer" : undefined}
-      className="icon-btn"
-    >
-      {children}
-    </a>
-  );
+/** GH Pages-safe: works with or without leading "/" in your data.js paths */
+function withBasePath(p) {
+  const base = import.meta.env.BASE_URL || "/";
+  const clean = String(p || "").replace(/^\/+/, "");
+  return `${base}${clean}`;
 }
 
-/** ✅ Normalize LinkedIn so it works whether you pass username or full URL */
 function getLinkedInUrl(linkedin) {
   const raw = (linkedin ?? "").trim();
   if (!raw) return "";
@@ -90,19 +127,85 @@ function getLinkedInUrl(linkedin) {
 }
 
 export default function App() {
-  const linkedinUrl = getLinkedInUrl(data.linkedin);
-  const githubUrl = data.github ? `https://github.com/${String(data.github).trim()}` : "";
-  const emailUrl = data.email ? `mailto:${String(data.email).trim()}` : "";
+  // ---------- normalized links ----------
+  const linkedinUrl = useMemo(() => getLinkedInUrl(data.linkedin), []);
+  const githubUrl = useMemo(
+    () => (data.github ? `https://github.com/${String(data.github).trim()}` : ""),
+    []
+  );
+
+  // assets (pdf + image) should be served from GH pages base
+  const photoUrl = useMemo(() => withBasePath(data.photo), []);
+  const resumeUrl = useMemo(() => withBasePath(data.resumeUrl), []);
+  const emailText = useMemo(() => String(data.email || "").trim(), []);
+  const emailUrl = useMemo(() => (emailText ? `mailto:${emailText}` : ""), [emailText]);
+
+  // ---------- role text animation ----------
+  // (your CSS does the role-scroll; this is just the markup)
+
+  // ---------- Email UX ----------
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [toast, setToast] = useState(null); // {title, desc}
+
+  function showToast(title, desc) {
+    setToast({ title, desc });
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => setToast(null), 2200);
+  }
+
+  async function copyEmail() {
+    if (!emailText) return;
+
+    try {
+      await navigator.clipboard.writeText(emailText);
+      showToast("Copied!", emailText);
+    } catch {
+      // fallback
+      const ta = document.createElement("textarea");
+      ta.value = emailText;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      showToast("Copied!", emailText);
+    }
+  }
+
+  function openMailto() {
+    if (!emailUrl) return;
+    window.location.href = emailUrl;
+    showToast("Opening mail app…", "If nothing opens, use Gmail or Copy.");
+  }
+
+  function openGmailCompose() {
+    if (!emailText) return;
+    const gmail = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+      emailText
+    )}`;
+    window.open(gmail, "_blank", "noreferrer");
+    showToast("Opening Gmail…", emailText);
+  }
+
+  // close modal on ESC
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape") setEmailModalOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="mx-auto max-w-6xl px-5 py-10">
         {/* ✨ Premium Top Header */}
         <header className="sticky top-0 z-20 -mx-5 mb-10 px-5 pt-3">
-          <div className="header-shell rounded-2xl border border-zinc-900 bg-zinc-950/70 backdrop-blur">
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-950/70 backdrop-blur">
             <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
               {/* Left brand */}
-              <div className="brand-card">
+              <div className="rounded-2xl border border-zinc-900 bg-zinc-950/60 px-4 py-3">
                 <div className="text-xs text-zinc-400">{data.location}</div>
                 <div className="mt-0.5 flex items-center gap-2">
                   <span className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_18px_rgba(245,158,11,0.55)]" />
@@ -113,24 +216,30 @@ export default function App() {
               </div>
 
               {/* Center nav pill */}
-              <nav className="nav-pill flex flex-wrap items-center justify-center gap-2 sm:gap-1">
-                <a className="nav-link" href="#about">About</a>
-                <a className="nav-link" href="#experience">Experience</a>
-                <a className="nav-link" href="#projects">Projects</a>
-                <a className="nav-link" href="#skills">Skills</a>
-                <a className="nav-link" href="#education">Education</a>
-                <a className="nav-link" href="#highlights">Achievements</a>
-                <a className="nav-link" href="#contact">Contact</a>
+              <nav className="flex flex-wrap items-center justify-center gap-2 rounded-full border border-zinc-900 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-300">
+                <a className="rounded-full px-3 py-1 hover:bg-zinc-900/60 hover:text-white" href="#about">About</a>
+                <a className="rounded-full px-3 py-1 hover:bg-zinc-900/60 hover:text-white" href="#experience">Experience</a>
+                <a className="rounded-full px-3 py-1 hover:bg-zinc-900/60 hover:text-white" href="#projects">Projects</a>
+                <a className="rounded-full px-3 py-1 hover:bg-zinc-900/60 hover:text-white" href="#skills">Skills</a>
+                <a className="rounded-full px-3 py-1 hover:bg-zinc-900/60 hover:text-white" href="#education">Education</a>
+                <a className="rounded-full px-3 py-1 hover:bg-zinc-900/60 hover:text-white" href="#highlights">Achievements</a>
+                <a className="rounded-full px-3 py-1 hover:bg-zinc-900/60 hover:text-white" href="#contact">Contact</a>
               </nav>
 
               {/* Right quick actions */}
               <div className="flex items-center justify-start gap-2 sm:justify-end">
-                <IconBtn href={data.resumeUrl} title="Resume">
+                <IconBtn href={resumeUrl} title="Resume">
                   <span className="text-lg">📄</span>
                 </IconBtn>
-                <IconBtn href={emailUrl} title="Email">
+
+                {/* Email opens modal (creative + reliable) */}
+                <IconBtn
+                  title="Email"
+                  onClick={() => setEmailModalOpen(true)}
+                >
                   <span className="text-lg">✉️</span>
                 </IconBtn>
+
                 <IconBtn href={githubUrl} title="GitHub">
                   <span className="text-lg">💻</span>
                 </IconBtn>
@@ -145,18 +254,18 @@ export default function App() {
         </header>
 
         {/* Hero */}
-        <div className="mb-12 rounded-2xl border border-zinc-900 bg-gradient-to-b from-zinc-900/40 to-zinc-950 p-6 sm:p-10 overflow-visible hero-card">
+        <div className="mb-12 overflow-visible rounded-2xl border border-zinc-900 bg-gradient-to-b from-zinc-900/40 to-zinc-950 p-6 sm:p-10">
           <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center overflow-visible">
             <div className="avatar-pop">
               <img
-                src={data.photo}
+                src={photoUrl}
                 alt={data.name}
                 className="h-28 w-28 rounded-full object-cover border border-zinc-800"
               />
             </div>
 
             <div className="min-w-0">
-              <h1 className="hero-title text-4xl font-semibold tracking-tight sm:text-5xl">
+              <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
                 Priyanshi
               </h1>
 
@@ -177,8 +286,16 @@ export default function App() {
           </div>
 
           <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Cta href={data.resumeUrl} label="Resume" sub="One click PDF" icon={<span>📄</span>} />
-            <Cta href={emailUrl} label="Email" sub="Fast reply" icon={<span>✉️</span>} />
+            <Cta href={resumeUrl} label="Resume" sub="One click PDF" icon={<span>📄</span>} />
+
+            {/* Email CTA opens modal (same experience as header icon) */}
+            <Cta
+              onClick={() => setEmailModalOpen(true)}
+              label="Email"
+              sub="Let’s talk"
+              icon={<span>✉️</span>}
+            />
+
             <Cta href={githubUrl} label="GitHub" sub={`@${String(data.github ?? "").trim()}`} icon={<span>💻</span>} />
             <Cta href={linkedinUrl} label="LinkedIn" sub="/priyanshidev" icon={<span>🔗</span>} />
           </div>
@@ -277,9 +394,19 @@ export default function App() {
             <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6">
               <div className="text-zinc-300">Want to collaborate or chat? Reach out.</div>
               <div className="mt-5 flex flex-wrap gap-3">
-                <a className="contact-btn rounded-2xl border border-zinc-800 bg-zinc-950/60 px-5 py-3 text-sm font-semibold" href={emailUrl}>Email Me</a>
-                <a className="contact-btn rounded-2xl border border-zinc-800 bg-zinc-950/60 px-5 py-3 text-sm font-semibold" href={linkedinUrl} target="_blank" rel="noreferrer">LinkedIn</a>
-                <a className="contact-btn rounded-2xl border border-zinc-800 bg-zinc-950/60 px-5 py-3 text-sm font-semibold" href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
+                <button
+                  type="button"
+                  className="contact-btn rounded-2xl border border-zinc-800 bg-zinc-950/60 px-5 py-3 text-sm font-semibold"
+                  onClick={() => setEmailModalOpen(true)}
+                >
+                  Email Me
+                </button>
+                <a className="contact-btn rounded-2xl border border-zinc-800 bg-zinc-950/60 px-5 py-3 text-sm font-semibold" href={linkedinUrl} target="_blank" rel="noreferrer">
+                  LinkedIn
+                </a>
+                <a className="contact-btn rounded-2xl border border-zinc-800 bg-zinc-950/60 px-5 py-3 text-sm font-semibold" href={githubUrl} target="_blank" rel="noreferrer">
+                  GitHub
+                </a>
               </div>
             </div>
           </Section>
@@ -289,6 +416,102 @@ export default function App() {
           <div>© {new Date().getFullYear()} {data.name}. Built with React + Vite + Tailwind.</div>
         </footer>
       </div>
+
+      {/* ---------------------------
+          Email Modal (creative + reliable)
+      --------------------------- */}
+      {emailModalOpen && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"
+          onClick={() => setEmailModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-[0_0_40px_rgba(0,0,0,0.55)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-lg font-semibold">Email Priyanshi</div>
+                <div className="mt-1 text-sm text-zinc-400">
+                  Pick your favorite way. Works even if mailto is not configured.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 hover:border-zinc-600"
+                onClick={() => setEmailModalOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-zinc-900 bg-zinc-950/60 p-4">
+              <div className="text-xs text-zinc-500">Email</div>
+              <div className="mt-1 break-all text-sm text-zinc-200">{emailText}</div>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <button
+                type="button"
+                className="contact-btn rounded-2xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm font-semibold"
+                onClick={() => {
+                  openGmailCompose();
+                  setEmailModalOpen(false);
+                }}
+              >
+                Open Gmail
+              </button>
+
+              <button
+                type="button"
+                className="contact-btn rounded-2xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm font-semibold"
+                onClick={() => {
+                  openMailto();
+                  // keep modal open so user can choose another option if nothing happens
+                }}
+              >
+                Open Mail App
+              </button>
+
+              <button
+                type="button"
+                className="contact-btn rounded-2xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 text-sm font-semibold"
+                onClick={copyEmail}
+              >
+                Copy Email
+              </button>
+            </div>
+
+            <div className="mt-3 text-xs text-zinc-500">
+              Tip: If “Open Mail App” does nothing, choose “Open Gmail” or “Copy Email”.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------
+          Toast
+      --------------------------- */}
+      {toast && (
+        <div className="fixed bottom-5 right-5 z-50 w-[min(360px,calc(100%-40px))]">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/90 p-4 shadow-[0_0_30px_rgba(245,158,11,0.12)] backdrop-blur">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_14px_rgba(245,158,11,0.55)]" />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-zinc-100">{toast.title}</div>
+                <div className="mt-0.5 truncate text-xs text-zinc-400">{toast.desc}</div>
+              </div>
+              <button
+                type="button"
+                className="ml-auto rounded-lg border border-zinc-800 bg-zinc-900/40 px-2 py-1 text-xs text-zinc-200 hover:border-zinc-600"
+                onClick={() => setToast(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

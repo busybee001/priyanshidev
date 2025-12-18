@@ -6,7 +6,7 @@ export const data = {
   email: "pri.shukla007@gmail.com",
   github: "busybee001",
   linkedin: "priyanshidev",
-  resumeUrl: "/Priyanshi_Shukla_Resume.pdf",
+  resumeUrl: "Priyanshi_Shukla_Resume.pdf",
 
   headline: "Innovative and collaborative software developer with 2+ years of experience building scalable applications and solving complex business problems.",
 
