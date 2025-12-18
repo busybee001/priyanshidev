@@ -1,6 +1,6 @@
 export const data = {
   name: "Priyanshi Shukla",
-  photo: "/images/priyanshi.jpg",
+  photo: "images/priyanshi.jpg",
   location: "Richmond, VA",
   phone: "+1 (804) 386-9533",
   email: "pri.shukla007@gmail.com",
