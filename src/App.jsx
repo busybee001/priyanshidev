@@ -136,7 +136,6 @@ export default function App() {
 
   // assets (pdf + image) should be served from GH pages base
   const photoUrl = useMemo(() => withBasePath(data.photo), []);
-  const resumeUrl = useMemo(() => withBasePath(data.resumeUrl), []);
   const emailText = useMemo(() => String(data.email || "").trim(), []);
   const emailUrl = useMemo(() => (emailText ? `mailto:${emailText}` : ""), [emailText]);
 
@@ -228,10 +227,6 @@ export default function App() {
 
               {/* Right quick actions */}
               <div className="flex items-center justify-start gap-2 sm:justify-end">
-                <IconBtn href={resumeUrl} title="Resume">
-                  <span className="text-lg">📄</span>
-                </IconBtn>
-
                 {/* Email opens modal (creative + reliable) */}
                 <IconBtn
                   title="Email"
@@ -285,9 +280,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Cta href={resumeUrl} label="Resume" sub="One click PDF" icon={<span>📄</span>} />
-
+          <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {/* Email CTA opens modal (same experience as header icon) */}
             <Cta
               onClick={() => setEmailModalOpen(true)}
@@ -338,7 +331,6 @@ export default function App() {
                   </ul>
                   <div className="mt-4 flex flex-wrap gap-4 text-sm">
                     {p.links.map((l) => <LinkA key={l.label} href={l.href}>{l.label}</LinkA>)}
-                    <span className="text-zinc-500">(Add repo links later in src/data.js)</span>
                   </div>
                 </div>
               ))}
